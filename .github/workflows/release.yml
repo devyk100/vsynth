@@ -94,21 +94,34 @@ jobs:
       with:
         vcpkgGitCommitId: 'a42af01b72c28a8e1d7b48107b33e4f286a55ef6'
     
-    - name: Install dependencies
+    - name: Install PortAudio only
       run: |
-        vcpkg install portaudio:x64-windows fftw3:x64-windows
+        vcpkg install portaudio:x64-windows
+    
+    - name: Download and setup FFTW3
+      run: |
+        # Download precompiled FFTW3 for Windows
+        Invoke-WebRequest -Uri "https://www.fftw.org/fftw-3.3.10-dll64.zip" -OutFile "fftw.zip"
+        Expand-Archive -Path "fftw.zip" -DestinationPath "fftw"
+        
+        # Create lib files from def files
+        lib /def:fftw/libfftw3f-3.def /out:fftw/libfftw3f-3.lib /machine:x64
+        
+        # Set environment variables
+        echo "FFTW_ROOT=$env:GITHUB_WORKSPACE\fftw" >> $env:GITHUB_ENV
     
     - name: Build VSynth
       run: |
         mkdir build
         cd build
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -DFFTW_ROOT=$env:FFTW_ROOT
         cmake --build . --config Release
     
     - name: Create Windows package
       run: |
         mkdir vsynth-windows
         copy build\Release\vsynth.exe vsynth-windows\
+        copy fftw\libfftw3f-3.dll vsynth-windows\
         copy README.md vsynth-windows\
         copy INSTALL.md vsynth-windows\
         copy package\LICENSE.txt vsynth-windows\
