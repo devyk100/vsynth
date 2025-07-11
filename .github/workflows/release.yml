@@ -15,12 +15,16 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y qt6-base-dev portaudio19-dev libfftw3-dev cmake build-essential
+        sudo apt install -y qt6-base-dev portaudio19-dev libfftw3-dev cmake build-essential pkg-config
     
-    - name: Build VSynth
+    - name: Clean and Build VSynth
       run: |
         chmod +x build.sh
-        ./build.sh
+        rm -rf build
+        mkdir -p build
+        cd build
+        cmake ..
+        make -j$(nproc)
     
     - name: Create Linux package
       run: |
@@ -44,18 +48,30 @@ jobs:
     
     - name: Install dependencies
       run: |
-        brew install qt6 portaudio fftw cmake
+        brew install qt6 portaudio fftw cmake pkg-config
     
     - name: Build VSynth
       run: |
-        chmod +x package/build_macos.sh
-        cd package && ./build_macos.sh
+        rm -rf build
+        mkdir -p build
+        cd build
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+        make -j$(sysctl -n hw.ncpu)
+    
+    - name: Create macOS package
+      run: |
+        mkdir -p vsynth-macos
+        cp build/vsynth vsynth-macos/
+        cp README.md vsynth-macos/
+        cp INSTALL.md vsynth-macos/
+        cp package/LICENSE.txt vsynth-macos/
+        tar -czf vsynth-macos.tar.gz vsynth-macos/
     
     - name: Upload macOS artifact
       uses: actions/upload-artifact@v4
       with:
         name: vsynth-macos
-        path: package/VSynth-*.dmg
+        path: vsynth-macos.tar.gz
 
   build-windows:
     runs-on: windows-latest
@@ -73,20 +89,36 @@ jobs:
         target: 'desktop'
         arch: 'win64_msvc2019_64'
     
-    - name: Install vcpkg dependencies
+    - name: Setup vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgGitCommitId: 'a42af01b72c28a8e1d7b48107b33e4f286a55ef6'
+    
+    - name: Install dependencies
       run: |
         vcpkg install portaudio:x64-windows fftw3:x64-windows
     
     - name: Build VSynth
       run: |
-        cd package
-        .\build_windows.bat
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release
+        cmake --build . --config Release
+    
+    - name: Create Windows package
+      run: |
+        mkdir vsynth-windows
+        copy build\Release\vsynth.exe vsynth-windows\
+        copy README.md vsynth-windows\
+        copy INSTALL.md vsynth-windows\
+        copy package\LICENSE.txt vsynth-windows\
+        tar -czf vsynth-windows.tar.gz vsynth-windows\
     
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
       with:
         name: vsynth-windows
-        path: package/VSynth-*.exe
+        path: vsynth-windows.tar.gz
 
   create-release:
     needs: [build-linux, build-macos, build-windows]
@@ -104,8 +136,8 @@ jobs:
       with:
         files: |
           vsynth-linux-x64/vsynth-linux-x64.tar.gz
-          vsynth-macos/VSynth-*.dmg
-          vsynth-windows/VSynth-*.exe
+          vsynth-macos/vsynth-macos.tar.gz
+          vsynth-windows/vsynth-windows.tar.gz
         body_path: RELEASE_NOTES.md
         draft: false
         prerelease: false
