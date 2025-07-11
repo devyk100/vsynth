@@ -1,4 +1,4 @@
-# VSynth v1.0.3 - Professional Software Synthesizer
+# VSynth v1.0.4 - Professional Software Synthesizer
 
 ## 🎹 What's New
 
