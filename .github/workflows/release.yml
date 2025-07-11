@@ -1,0 +1,113 @@
+name: Build and Release VSynth
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers on version tags like v1.0.0
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y qt6-base-dev portaudio19-dev libfftw3-dev cmake build-essential
+    
+    - name: Build VSynth
+      run: |
+        chmod +x build.sh
+        ./build.sh
+    
+    - name: Create Linux package
+      run: |
+        mkdir -p vsynth-linux-x64
+        cp build/vsynth vsynth-linux-x64/
+        cp README.md vsynth-linux-x64/
+        cp INSTALL.md vsynth-linux-x64/
+        cp package/LICENSE.txt vsynth-linux-x64/
+        tar -czf vsynth-linux-x64.tar.gz vsynth-linux-x64/
+    
+    - name: Upload Linux artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: vsynth-linux-x64
+        path: vsynth-linux-x64.tar.gz
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install dependencies
+      run: |
+        brew install qt6 portaudio fftw cmake
+    
+    - name: Build VSynth
+      run: |
+        chmod +x package/build_macos.sh
+        cd package && ./build_macos.sh
+    
+    - name: Upload macOS artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: vsynth-macos
+        path: package/VSynth-*.dmg
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup MSVC
+      uses: microsoft/setup-msbuild@v2
+    
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.5.0'
+        host: 'windows'
+        target: 'desktop'
+        arch: 'win64_msvc2019_64'
+    
+    - name: Install vcpkg dependencies
+      run: |
+        vcpkg install portaudio:x64-windows fftw3:x64-windows
+    
+    - name: Build VSynth
+      run: |
+        cd package
+        .\build_windows.bat
+    
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: vsynth-windows
+        path: package/VSynth-*.exe
+
+  create-release:
+    needs: [build-linux, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          vsynth-linux-x64/vsynth-linux-x64.tar.gz
+          vsynth-macos/VSynth-*.dmg
+          vsynth-windows/VSynth-*.exe
+        body_path: RELEASE_NOTES.md
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
