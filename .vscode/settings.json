@@ -1,0 +1,12 @@
+{
+    "files.associations": {
+        "algorithm": "cpp",
+        "random": "cpp",
+        "cmath": "cpp",
+        "iostream": "cpp",
+        "qresizeevent": "cpp",
+        "qpainter": "cpp",
+        "qbrush": "cpp",
+        "qpen": "cpp"
+    }
+}

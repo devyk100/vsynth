@@ -1,0 +1,4 @@
+/home/yash/projects/vsynth/build/CMakeFiles/vsynth.dir
+/home/yash/projects/vsynth/build/CMakeFiles/edit_cache.dir
+/home/yash/projects/vsynth/build/CMakeFiles/rebuild_cache.dir
+/home/yash/projects/vsynth/build/CMakeFiles/vsynth_autogen.dir
